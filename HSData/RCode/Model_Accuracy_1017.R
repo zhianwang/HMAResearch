@@ -1,22 +1,12 @@
+library(dplyr)
+library(ggplot2)
+
 npr_accuracy <- read.csv("Result/modelaccuracy_npr_1017.csv")
 totrevenue_accuracy <- read.csv("Result/modelaccuracy_totalrevenue_1017.csv")
 
 
 npr_p <- unique(npr_accuracy[,c(1,5:7)])
 totrev_p <- unique(totrevenue_accuracy[,c(1,5:7)])
-
-library(ggplot2)
-ggplot(npr_p, aes(x=a_Name, y=mad)) + geom_point()
-ggplot(totrev_p, aes(x=a_Name, y=mad)) + geom_point()
-
-
-ggplot(npr_p, aes(x=mad)) + geom_histogram() +
-  geom_vline(aes(xintercept=mean(mad)),
-               color="blue", linetype="dashed", size=1)
-
-ggplot(npr_p, aes(x=mad)) + 
-  geom_histogram(aes(y=..density..), colour="black", fill="white")+
-  geom_density(alpha=.2, fill="#FF6666") 
 
 # Stats ------------------------------------------------------------------------------------------------
 median(npr_p$mad)
@@ -28,8 +18,6 @@ median(totrev_p$mape)
 median(totrev_p$p)
 
 # Plot --------------------------------------------------------------------------------------------------
-x$bins <- cut(x$rank, breaks=c(0,4,10,15), labels=c("1-4","5-10","10-15"))
-
 #npr_p$p_bins <- cut(npr_p$p, breaks = c(0,0.8,0.9,0.95,1), labels = c("<=0.8","0.8-0.9","0.9-0.95","> 0.95"))
 npr_p$p_label <- cut(npr_p$p, breaks = c(0,0.8,0.9,0.95,1), labels = c("Unqualified, precison rate<=0.8",
                                                                        "Qualified, 0.8<precison rate<0.9",
@@ -43,17 +31,37 @@ totrev_p$p_label <- cut(totrev_p$p, breaks = c(-Inf,0.8,0.9,0.95,1), labels = c(
                                                                                 "Excellent, precison rate>=0.95"))
 levels(totrev_p$p_label) <- gsub(", ", "\n", levels(totrev_p$p_label))
 
-nprcount <- npr_p %>% group_by(p_label) %>% summarise(count = n()) %>% mutate(Name = "NPR")
-totcount <- totrev_p %>% group_by(p_label) %>% summarise(count = n()) %>% mutate(Name = "Total Revenue")
-df <- npr_p %>% group_by(p_label) %>% summarise(count = n()) %>% mutate(Name = "NPR") %>%
-      bind_rows(totrev_p %>% group_by(p_label) %>% summarise(count = n()) %>% mutate(Name = "Total Revenue"))
+#nprcount <- npr_p %>% group_by(p_label) %>% summarise(count = n()) %>% mutate(Name = "NPR", Share = count/sum(count)*100)
+#totcount <- totrev_p %>% group_by(p_label) %>% summarise(count = n()) %>% mutate(Name = "Total Revenue", Share = count/sum(count)*100)
 
-ggplot(npr_p, aes(x=p_label)) + geom_histogram(stat = "count", fill="#3e9199") #+
-  scale_colour_gradient(low = "white", high = "black")
+df <- npr_p %>% group_by(p_label) %>% summarise(count = n()) %>% mutate(Name = "NPR",Share = count/sum(count)*100) %>%
+      bind_rows(totrev_p %>% group_by(p_label) %>% summarise(count = n()) %>% mutate(Name = "Total Revenue",Share = count/sum(count)*100))
 
-build_bar_plot(filter(df,Name == "NPR"), x_var = "p_label", y_var = "count", facet_var = "Name")
 
-build_bar_plot(df, x_var = "p_label", y_var = "count", facet_var = "Name")
+scaled_number <- function(
+  x # list of numbers you want to transform
+){
+  sapply(x, function(y){
+    if(is.na(y)) return("NA")
+    y_lab <- "yuge"
+    if(abs(y) < 1e15) y_lab <- paste0(round(y/1e12), "T")
+    if(abs(y) < 1e14) y_lab <- paste0(round(y/1e12, 1), "T")
+    if(abs(y) < 1e13) y_lab <- paste0(round(y/1e12, 2), "T")
+    if(abs(y) < 1e12) y_lab <- paste0(round(y/1e9), "B")
+    if(abs(y) < 1e11) y_lab <- paste0(round(y/1e9, 1), "B")
+    if(abs(y) < 1e10) y_lab <- paste0(round(y/1e9, 2), "B")
+    if(abs(y) < 1e9) y_lab <- paste0(round(y/1e6), "M")
+    if(abs(y) < 1e9) y_lab <- paste0(round(y/1e6, 1), "M")
+    if(abs(y) < 1e7) y_lab <- paste0(round(y/1e6, 2), "M")
+    if(abs(y) < 1e6) y_lab <- paste0(round(y/1000), "k")
+    if(abs(y) < 1e5) y_lab <- as.character(round(y))
+    #if(abs(y) < 1e4) y_lab <- paste0(round(y/1000, 2), "k")
+    if(abs(y) < 1000) ylab <- as.character(round(y))
+    if(abs(y) < 100) y_lab <- as.character(round(y,1))
+    if(abs(y) < 10) y_lab <- as.character(round(y,2))
+    return(y_lab)
+  })
+}
 
 build_bar_plot <- function(
   # Adds a geom layer to a ggplot object based on user input.
@@ -129,27 +137,3 @@ build_bar_plot(df, x_var = "p_label", y_var = "count", facet_var = "Name",
                #plot_title = "Model Precision Rate Distribution",
                y_title = " # Health Systems")
 
-scaled_number <- function(
-  x # list of numbers you want to transform
-){
-  sapply(x, function(y){
-    if(is.na(y)) return("NA")
-    y_lab <- "yuge"
-    if(abs(y) < 1e15) y_lab <- paste0(round(y/1e12), "T")
-    if(abs(y) < 1e14) y_lab <- paste0(round(y/1e12, 1), "T")
-    if(abs(y) < 1e13) y_lab <- paste0(round(y/1e12, 2), "T")
-    if(abs(y) < 1e12) y_lab <- paste0(round(y/1e9), "B")
-    if(abs(y) < 1e11) y_lab <- paste0(round(y/1e9, 1), "B")
-    if(abs(y) < 1e10) y_lab <- paste0(round(y/1e9, 2), "B")
-    if(abs(y) < 1e9) y_lab <- paste0(round(y/1e6), "M")
-    if(abs(y) < 1e9) y_lab <- paste0(round(y/1e6, 1), "M")
-    if(abs(y) < 1e7) y_lab <- paste0(round(y/1e6, 2), "M")
-    if(abs(y) < 1e6) y_lab <- paste0(round(y/1000), "k")
-    if(abs(y) < 1e5) y_lab <- as.character(round(y))
-    #if(abs(y) < 1e4) y_lab <- paste0(round(y/1000, 2), "k")
-    if(abs(y) < 1000) ylab <- as.character(round(y))
-    if(abs(y) < 100) y_lab <- as.character(round(y,1))
-    if(abs(y) < 10) y_lab <- as.character(round(y,2))
-    return(y_lab)
-  })
-}

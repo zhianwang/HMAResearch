@@ -129,3 +129,13 @@ top100HS2017 <- totalrevenue %>%
 
 openxlsx::write.xlsx(top100HS2017,"Result/2017top100HS_1017.xlsx")
 
+# Top 100 HS based on NPR -----------------------------------------------------------------------------------------
+revenuetbl <- read.csv("Result/revenue_1017.csv")
+top100HSnpr <- revenuetbl %>% filter(Year == 2017) %>%
+  select(a_Name,NPR) %>% 
+  filter(!a_Name %in% c("MEDNAX Services, Inc. (FL)", #remove MEDNAX as a physician service association
+                     "Presence Health (IL)")) %>% # and Presence Health (IL) mergerd be part of Ascension
+  mutate(rank = min_rank(desc(NPR))) %>%
+  top_n(100,NPR) %>%
+  arrange(rank)
+openxlsx::write.xlsx(top100HSnpr,"Result/2017NPRtop100HS_1023.xlsx")
